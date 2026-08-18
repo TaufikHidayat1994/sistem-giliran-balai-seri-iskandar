@@ -49,7 +49,7 @@
         <p style="margin: 0 0 10px 0;">Nama: <strong id="namaTiket">-</strong></p>
         <div class="box-mesej" id="statusMesej">Memuatkan status barisan...</div>
         
-        <!-- Butang pintar untuk aduan kedua jika urusan pertama selesai -->
+        <!-- Butang untuk urusan kedua -->
         <button onclick="lepaskanTiketSelesai()" style="background-color: #718096; font-size: 12px; padding: 8px; width: auto; margin-top: 20px;">Urusan Selesai / Tiket Baru</button>
     </div>
 </div>
@@ -58,15 +58,17 @@
     // ==========================================
     // TETAPAN SISTEM & GPS BALAI POLIS SERI ISKANDAR
     // ==========================================
-    const FIREBASE_URL = "https://console.firebase.google.com/project/giliran-balai-seri-iskandar/database/giliran-balai-seri-iskandar-default-rtdb/data/~2F";
-    const KEDAI_LAT = 4.36758;         // Koordinat Latitude Balai Polis
-    const KEDAI_LNG = 100.95785;       // Koordinat Longitude Balai Polis
-    const UTK_JARAK_MAKSIMUM = 50;     // Jejari sekatan dalam unit meter
+    // Sila pastikan URL di bawah adalah URL Realtime Database anda yang betul (berakhir dengan ://)
+    const FIREBASE_URL = "https://firebasedatabase.app/";
+    
+    const KEDAI_LAT = 4.36758;         
+    const KEDAI_LNG = 100.95785;       
+    const UTK_JARAK_MAKSIMUM = 50;     
 
     let sudahDiberitahu = false;
     let audioCtx = null;
 
-    // 1. KUNCI PERANTI & LOGIK AUTO-CHECK URUSAN SELESAI APABILA WEBPAGE DIBUKA
+    // 1. KUNCI PERANTI & SEMAK STATUS SEWAKTU HALAMAN DIBUKA
     window.onload = function() {
         let savedTicket = localStorage.getItem('bp_ticket_no');
         let savedName = localStorage.getItem('bp_ticket_name');
@@ -74,27 +76,24 @@
         if (savedTicket && savedName) {
             let noSayaInt = parseInt(savedTicket);
 
-            // Semak dahulu status nombor sedia ada di Firebase
             fetch(`${FIREBASE_URL}/current_called.json`)
                 .then(res => res.json())
                 .then(currentCalled => {
                     let dipanggilSemasa = currentCalled ? parseInt(currentCalled) : 1000;
 
-                    // Jika nombor lama rupa-rupanya sudah pun dipanggil/lepas oleh staf
                     if (dipanggilSemasa >= noSayaInt) {
                         localStorage.removeItem('bp_ticket_no');
                         localStorage.removeItem('bp_ticket_name');
                         document.getElementById('borang-pendaftaran').style.display = 'block';
                         document.getElementById('paparan-tiket').style.display = 'none';
                     } else {
-                        // Jika nombor lama belum dipanggil, paksa kunci pada skrin menunggu tiket lama
                         bukaSkrinTiket(savedTicket, savedName);
                     }
                 }).catch(() => {
                     bukaSkrinTiket(savedTicket, savedName);
                 });
         }
-    }
+    };
 
     function bukaSkrinTiket(noTiket, nama) {
         document.getElementById('borang-pendaftaran').style.display = 'none';
@@ -103,7 +102,7 @@
         document.getElementById('namaTiket').innerText = nama;
     }
 
-    // 2. SEKURITI PERIMETER GPS (GEOFENCING)
+    // 2. SEKURITI GEOLOCATION (GPS GEOFENCING)
     function semakLokasiDanAmbil() {
         let nama = document.getElementById('namaPelanggan').value.trim();
         if (!nama) { alert('Sila masukkan nama anda!'); return; }
@@ -113,7 +112,7 @@
         btn.innerText = "🚨 Menyemak Kedudukan GPS...";
 
         if (!navigator.geolocation) {
-            alert("Peranti anda menyekat sistem navigasi keselamatan.");
+            alert("Peranti anda tidak menyokong akses navigasi lokasi.");
             resetButangAmbil();
             return;
         }
@@ -130,7 +129,7 @@
             }
             prosesAmbilNomborKeFirebase(nama);
         }, function(error) {
-            alert("Akses GPS Ditolak! Sila benarkan tetapan lokasi ('Location Access') pada telefon untuk mengambil tiket.");
+            alert("Akses GPS Ditolak! Sila benarkan tetapan lokasi ('Location Access') pada telefon untuk mengambil tiket giliran.");
             resetButangAmbil();
         }, { enableHighAccuracy: true, timeout: 10000 });
     }
@@ -151,7 +150,7 @@
         return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
     }
 
-    // 3. LOGIK PENJANAAN NOMBOR TIKET DI FIREBASE
+    // 3. LOGIK REALTIME DATABASE FIREBASE
     function prosesAmbilNomborKeFirebase(nama) {
         fetch(`${FIREBASE_URL}/last_number.json`)
             .then(res => res.json())
@@ -168,7 +167,7 @@
             }).catch(() => { alert("Ralat rangkaian internet."); resetButangAmbil(); });
     }
 
-    // 4. PEMANTAUAN MASA NYATA DATA BARISAN
+    // 4. PEMANTAUAN LIVE DATA STATUS
     function pantauSistem() {
         fetch(`${FIREBASE_URL}/.json`)
             .then(res => res.json())
@@ -189,8 +188,10 @@
                     else if (lastCalled >= noSayaInt) {
                         document.getElementById('statusMesej').innerText = "❌ NOMBOR ANDA TELAH TERLEPAS!\nSila maklumkan kepada petugas kaunter.";
                         document.getElementById('statusMesej').style.backgroundColor = "#fed7d7";
-						document.getElementById('statusMesej').style.color = "#9b2c2c";} else {
-						let baki = noSayaInt - lastCalled;
+                        document.getElementById('statusMesej').style.color = "#9b2c2c";
+                    } else {
+                        let baki = noSayaInt - lastCalled;
+
 						document.getElementById('statusMesej').innerText = ⏳ Mohon bersiap sedia.\nAda 
 						${baki} giliran sebelum nombor anda dipanggil.;
 						document.getElementById('statusMesej').style.backgroundColor = "#feebc8";
@@ -199,9 +200,9 @@
 						}
 						});
 						}
-						setInterval(pantauSistem, 2000);// 
+						setInterval(pantauSistem, 2000);
 						
-						5. APABILA NOMBOR DIPANGGILI OLEH PEGAWAI KAUNTER
+						// 5. APABILA NOMBOR DIPANGGILI OLEH PEGAWAI KAUNTER
 						
 						function setMesejDipanggil(nomborKaunter) {
 						document.getElementById('statusMesej').innerText = 🔔 SILA KE KAUNTER 
