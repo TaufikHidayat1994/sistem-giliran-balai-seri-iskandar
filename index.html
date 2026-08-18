@@ -33,10 +33,10 @@
 </div>
 
 <script>
-    // URL Pangkalan Data Anda yang Sah dari Screenshot
+    // URL Pangkalan Data Rasmi Anda yang Sah
     const FIREBASE_URL = "https://firebasedatabase.app";
 
-    // Fungsi utama dipicu apabila butang ditekan
+    // Fungsi utama dipicu apabila butang "Ambil Tiket Giliran" ditekan
     function semakLokasiDanAmbil() {
         let nama = document.getElementById('namaPelanggan').value.trim();
         if (!nama) { 
@@ -44,33 +44,54 @@
             return; 
         }
 
+        // Tukar status butang menjadi memproses
         document.getElementById('btnAmbil').innerText = "⏳ Memproses...";
         document.getElementById('btnAmbil').disabled = true;
 
-        // Ambil nombor terakhir dari Firebase Realtime Database
-        fetch(FIREBASE_URL + "last_number.json")
-            .then(res => res.json())
+        // PENGUBAHSUAIAN: Alamat URL terus yang digabungkan secara selamat untuk REST API Firebase
+        const TARGET_URL = "https://firebasedatabase.applast_number.json";
+
+        // Ambil data nombor terakhir dari Firebase
+        fetch(TARGET_URL)
+            .then(res => {
+                if (!res.ok) {
+                    throw new Error("Respons rangkaian tidak berjaya");
+                }
+                return res.json();
+            })
             .then(lastNumber => {
+                // Jika database masih kosong (null), mulakan dari siri 1001
                 let nextNumber = lastNumber ? parseInt(lastNumber) + 1 : 1001;
 
-                // Kemaskini nombor giliran baharu ke Firebase
-                fetch(FIREBASE_URL + "last_number.json", {
+                // Hantar dan kemaskini nombor giliran baharu ke Firebase
+                fetch(TARGET_URL, {
                     method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
                     body: JSON.stringify(nextNumber)
                 }).then(() => {
-                    // Paparkan tiket pada skrin peranti pelanggan
+                    // Paparkan tiket dengan jaya pada skrin peranti pelanggan
                     document.getElementById('borang-pendaftaran').style.display = 'none';
                     document.getElementById('paparan-tiket').style.display = 'block';
                     document.getElementById('noTiket').innerText = nextNumber;
                     document.getElementById('namaTiket').innerText = nama;
+                }).catch(err => {
+                    alert("Gagal mengemas kini data baharu ke Firebase.");
+                    resetButangAsal();
                 });
             }).catch(err => {
-                alert("Ralat sambungan database. Sila pastikan Rules Firebase adalah true.");
-                document.getElementById('btnAmbil').innerText = "Ambil Tiket Giliran";
-                document.getElementById('btnAmbil').disabled = false;
+                alert("Ralat sambungan database. Sila pastikan pautan URL Firebase ditaip dengan betul tanpa kesilapan ejaan.");
+                resetButangAsal();
             });
     }
+
+    function resetButangAsal() {
+        document.getElementById('btnAmbil').innerText = "Ambil Tiket Giliran";
+        document.getElementById('btnAmbil').disabled = false;
+    }
 </script>
+
 
 </body>
 </html>
