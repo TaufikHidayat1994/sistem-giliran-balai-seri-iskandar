@@ -33,10 +33,12 @@
 </div>
 
 <script>
-    // URL Pangkalan Data Rasmi Anda yang Sah
+    // URL Pangkalan Data Utama Anda yang Sah
     const FIREBASE_URL = "https://firebasedatabase.app";
-    const TARGET_URL = "https://giliran-balai-seri-iskandar-default-rtdb.asia-southeast1.firebasedatabase.app/" + "last_number.json"; 
-    // Fungsi utama dipicu apabila butang "Ambil Tiket Giliran" ditekan
+
+    // URL Sasaran REST API Terus (Satu baris teks penuh, bersih tanpa tanda tambah)
+    const TARGET_URL = "https://firebasedatabase.applast_number.json";
+
     function semakLokasiDanAmbil() {
         let nama = document.getElementById('namaPelanggan').value.trim();
         if (!nama) { 
@@ -48,27 +50,20 @@
         document.getElementById('btnAmbil').innerText = "⏳ Memproses...";
         document.getElementById('btnAmbil').disabled = true;
 
-        // PENGUBAHSUAIAN: Alamat URL terus yang digabungkan secara selamat untuk REST API Firebase
-        const TARGET_URL = "https://firebasedatabase.applast_number.json";
-
         // Ambil data nombor terakhir dari Firebase
         fetch(TARGET_URL)
             .then(res => {
-                if (!res.ok) {
-                    throw new Error("Respons rangkaian tidak berjaya");
-                }
+                if (!res.ok) { throw new Error("Respons gagal"); }
                 return res.json();
             })
             .then(lastNumber => {
-                // Jika database masih kosong (null), mulakan dari siri 1001
+                // Jika database kosong, mulakan dari 1001
                 let nextNumber = lastNumber ? parseInt(lastNumber) + 1 : 1001;
 
-                // Hantar dan kemaskini nombor giliran baharu ke Firebase
+                // Hantar dan kemaskini data nombor siri giliran baharu ke Firebase
                 fetch(TARGET_URL, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(nextNumber)
                 }).then(() => {
                     // Paparkan tiket dengan jaya pada skrin peranti pelanggan
@@ -90,7 +85,30 @@
         document.getElementById('btnAmbil').innerText = "Ambil Tiket Giliran";
         document.getElementById('btnAmbil').disabled = false;
     }
+
+    function pantauSistem() {
+        fetch(FIREBASE_URL + ".json")
+            .then(res => res.json())
+            .then(data => {
+                if(!data) return;
+                document.getElementById('liveK1').innerText = data.kaunter1 || "---";
+                document.getElementById('liveK2').innerText = data.kaunter2 || "---";
+            });
+    }
+    setInterval(pantauSistem, 2000);
+
+    function mintaIzinNotifikasi() {
+        alert("Sistem isyarat bunyi sedia diaktifkan.");
+        document.getElementById('btnIzin').style.display = 'none';
+    }
+
+    function lepaskanTiketSelesai() {
+        localStorage.removeItem('bp_ticket_no');
+        localStorage.removeItem('bp_ticket_name');
+        location.reload();
+    }
 </script>
+
 
 
 </body>
