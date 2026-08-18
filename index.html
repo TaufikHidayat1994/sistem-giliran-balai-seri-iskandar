@@ -10,7 +10,7 @@
         .logo-placeholder { font-size: 14px; font-weight: bold; color: #003366; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
         .status-kedai { background: #edf2f7; padding: 12px; border-radius: 10px; margin-bottom: 20px; font-size: 15px; border: 1px solid #cbd5e0; }
         .live-no { font-size: 28px; font-weight: bold; color: #e53e3e; display: block; margin-top: 5px; }
-        button { background-color: #003366; color: white; border: none; padding: 14px; font-size: 16px; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: bold; transition: 0.2s; }
+        button { background-color: #003366; color: white; border: none; padding: 14px; font-size: 16px; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: bold; }
         button:disabled { background-color: #a0aec0; cursor: not-allowed; }
         input { width: 100%; padding: 12px; margin-top: 10px; font-size: 16px; border-radius: 8px; border: 1px solid #cbd5e0; box-sizing: border-box; }
         .nombor-anda { font-size: 56px; font-weight: bold; color: #2f855a; margin: 15px 0; letter-spacing: 2px; }
@@ -50,17 +50,16 @@
 </div>
 
 <script>
-    // URL Pangkalan Data Rasmi dari Gambar Sesi Anda
+    // URL database sah dari screenshot anda
     const FIREBASE_URL = "https://giliran-balai-seri-iskandar-default-rtdb.asia-southeast1.firebasedatabase.app/";
-    
     const KEDAI_LAT = 4.36758;         
     const KEDAI_LNG = 100.95785;       
-    const UTK_JARAK_MAKSIMUM = 9999999999999999;     
+    const UTK_JARAK_MAKSIMUM = 999999; // DITUKAR KEPADA BEBAS JARAK UNTUK FASA UJIAN DI RUMAH ANDA
 
     let sudahDiberitahu = false;
     let audioCtx = null;
 
-    // FUNGSI UTAMA DI LETAKKAN DI ATAS AGAR KALIS RALAT SINTAKS
+    // Fungsi diletakkan paling atas supaya sedia dipanggil tanpa gangguan ralat bawah
     function semakLokasiDanAmbil() {
         let nama = document.getElementById('namaPelanggan').value.trim();
         if (!nama) { alert('Sila masukkan nama anda!'); return; }
@@ -81,13 +80,13 @@
             let jarak = kiraJarakMeter(KEDAI_LAT, KEDAI_LNG, userLat, userLng);
             
             if (jarak > UTK_JARAK_MAKSIMUM) {
-                alert(`Pendaftaran Disekat!\n\nAnda berada ${Math.round(jarak)}m dari balai. Anda mesti hadir secara fizikal di Balai Polis Seri Iskandar untuk mengambil tiket.`);
+                alert("Pendaftaran Disekat! Anda terlalu jauh dari balai.");
                 resetButangAmbil();
                 return;
             }
             prosesAmbilNomborKeFirebase(nama);
         }, function(error) {
-            alert("Akses GPS Ditolak! Sila aktifkan 'Location' pada telefon untuk ambil tiket.");
+            alert("Akses GPS Ditolak! Sila benarkan tetapan lokasi ('Location Access') pada telefon untuk mengambil tiket.");
             resetButangAmbil();
         }, { enableHighAccuracy: true, timeout: 10000 });
     }
@@ -95,7 +94,6 @@
     window.onload = function() {
         let savedTicket = localStorage.getItem('bp_ticket_no');
         let savedName = localStorage.getItem('bp_ticket_name');
-        
         if (savedTicket && savedName) {
             let noSayaInt = parseInt(savedTicket);
             fetch(`${FIREBASE_URL}/current_called.json`)
@@ -105,8 +103,6 @@
                     if (dipanggilSemasa >= noSayaInt) {
                         localStorage.removeItem('bp_ticket_no');
                         localStorage.removeItem('bp_ticket_name');
-                        document.getElementById('borang-pendaftaran').style.display = 'block';
-                        document.getElementById('paparan-tiket').style.display = 'none';
                     } else {
                         bukaSkrinTiket(savedTicket, savedName);
                     }
@@ -121,6 +117,12 @@
         document.getElementById('paparan-tiket').style.display = 'block';
         document.getElementById('noTiket').innerText = noTiket;
         document.getElementById('namaTiket').innerText = nama;
+    }
+
+    function resetButangAmbil() {
+        let btn = document.getElementById('btnAmbil');
+        btn.disabled = false;
+        btn.innerText = "Ambil Tiket Giliran";
     }
 
     function kiraJarakMeter(lat1, lon1, lat2, lon2) {
@@ -185,5 +187,7 @@
         document.getElementById('statusMesej').innerText = `🔔 SILA KE KAUNTER ${nomborKaunter} SEKARANG!\nPegawai bertugas sedang menunggu anda.`;
         document.getElementById('statusMesej').style.backgroundColor = "#c6f6d5";
         document.getElementById('statusMesej').style.color = "#22543d";
+        if (!sudahDiberitahu) { cetusAmaranTelefon(nomborKaunter); sudahDiberitahu = true; }
+    }
 
-if (!sudahDiberitahu) { cetusAmaranTelefon(nomborKaunter); sudahDiberitahu = true; }}function cetusAmaranTelefon(kaunter) {if (audioCtx) { mainBunyi(659.25, 0.2); setTimeout(() => mainBunyi(880.00, 0.4), 250); }if ("vibrate" in navigator) { navigator.vibrate(); }if ("Notification" in window && Notification.permission === "granted") {new Notification("Panggilan Giliran Balai", { body: Sila ke Kaunter ${kaunter} });}}function mainBunyi(frekuensi, durasi) {if(!audioCtx) return;let osc = audioCtx.createOscillator();let gain = audioCtx.createGain();osc.type = "sine"; osc.frequency.value = frekuensi;gain.gain.setValueAtTime(0.5, audioCtx.currentTime);osc.connect(gain); gain.connect(audioCtx.destination);osc.start(); setTimeout(() => osc.stop(), durasi * 1000);}function mintaIzinNotifikasi() {audioCtx = new (window.AudioContext || window.webkitAudioContext)();if ("Notification" in window) {Notification.requestPermission().then(permission => {if (permission === "granted") { alert("Sistem amaran aktif."); document.getElementById('btnIzin').style.display = 'none'; }});} else { alert("Sistem isyarat bunyi aktif."); document.getElementById('btnIzin').style.display = 'none'; }}function lepaskanTiketSelesai() {let savedTicket = localStorage.getItem('bp_ticket_no');if (!savedTicket) return;let noSayaInt = parseInt(savedTicket);fetch(${FIREBASE_URL}/current_called.json).then(res => res.json()).then(currentCalled => {let dipanggilSemasa = currentCalled ? parseInt(currentCalled) : 1000;if (dipanggilSemasa >= noSayaInt) {localStorage.removeItem('bp_ticket_no');localStorage.removeItem('bp_ticket_name');alert("Sila daftar nombor giliran baharu.");location.reload();} else {let baki = noSayaInt - dipanggilSemasa;alert(Sila selesaikan urusan pertama anda dahulu (Baki: ${baki} orang).);}});}
+function cetusAmaranTelefon(kaunter) {if (audioCtx) { mainBunyi(659.25, 0.2); setTimeout(() => mainBunyi(880.00, 0.4), 250); }if ("vibrate" in navigator) { navigator.vibrate(); }if ("Notification" in window && Notification.permission === "granted") {new Notification("Panggilan Giliran Balai", { body: Sila ke Kaunter ${kaunter} });}}function mainBunyi(frekuensi, durasi) {if(!audioCtx) return;let osc = audioCtx.createOscillator();let gain = audioCtx.createGain();osc.type = "sine"; osc.frequency.value = frekuensi;gain.gain.setValueAtTime(0.5, audioCtx.currentTime);osc.connect(gain); gain.connect(audioCtx.destination);osc.start(); setTimeout(() => osc.stop(), durasi * 1000);}function mintaIzinNotifikasi() {audioCtx = new (window.AudioContext || window.webkitAudioContext)();if ("Notification" in window) {Notification.requestPermission().then(permission => {if (permission === "granted") { alert("Sistem amaran aktif."); document.getElementById('btnIzin').style.display = 'none'; }});} else { alert("Sistem isyarat bunyi aktif."); document.getElementById('btnIzin').style.display = 'none'; }}function lepaskanTiketSelesai() {let savedTicket = localStorage.getItem('bp_ticket_no');if (!savedTicket) return;let noSayaInt = parseInt(savedTicket);fetch(${FIREBASE_URL}/current_called.json).then(res => res.json()).then(currentCalled => {let dipanggilSemasa = currentCalled ? parseInt(currentCalled) : 1000;if (dipanggilSemasa >= noSayaInt) {localStorage.removeItem('bp_ticket_no');localStorage.removeItem('bp_ticket_name');alert("Sila daftar nombor giliran baharu.");location.reload();} else {let baki = noSayaInt - dipanggilSemasa;alert(Sila selesaikan urusan pertama anda dahulu (Baki: ${baki} orang).);}});}
