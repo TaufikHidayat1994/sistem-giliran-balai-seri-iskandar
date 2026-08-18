@@ -33,11 +33,12 @@
 </div>
 
 <script>
-    // URL Pangkalan Data Utama Anda yang Sah
+       // GANTIKAN DUA BARIS URL LAMA ANDA DENGAN DUA BARIS KOD PINTAR INI:
     const FIREBASE_URL = "https://firebasedatabase.app";
+    
+    // Penambahan '?auth=null' memaksa Firebase menerima kemasukan REST API awam tanpa sekatan token
+    const TARGET_URL = "https://firebasedatabase.applast_number.json?auth=null";
 
-    // URL Sasaran REST API Terus (Satu baris teks penuh, bersih tanpa tanda tambah)
-    const TARGET_URL = "https://firebasedatabase.applast_number.json";
 
     function semakLokasiDanAmbil() {
         let nama = document.getElementById('namaPelanggan').value.trim();
