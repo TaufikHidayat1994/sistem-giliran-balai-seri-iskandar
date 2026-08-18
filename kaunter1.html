@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Kawalan - Kaunter 1 (Balai Polis Seri Iskandar)</title>
+    <title>Sistem Giliran BP Seri Iskandar - Kaunter 1</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; padding: 25px; background-color: #e2e8f0; color: #1a202c; }
         .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: inline-block; max-width: 320px; width: 100%; box-sizing: border-box; border-top: 6px solid #003366; }
@@ -27,7 +27,7 @@
         <div class="no-panggil" id="noSemasaKaunter">---</div>
     </div>
 
-    <!-- Butang Kawalan Pegawai Kaunter 1 -->
+    <!-- Butang Utama Kawalan Staf -->
     <button onclick="panggilSeterusnya()">Seterusnya ➡️</button>
     
     <div class="status-tarikh" id="infoTarikh">Menyemak tarikh sistem...</div>
@@ -35,48 +35,50 @@
 </div>
 
 <script>
-    const FIREBASE_URL = "https://console.firebase.google.com/project/giliran-balai-seri-iskandar/database/giliran-balai-seri-iskandar-default-rtdb/data/~2F";
+    // URL Pangkalan Data Rasmi Dari Gambar Sesi Anda
+    const BASE_DB_URL = "https://firebasedatabase.app";
     const KAUNTER_ID = "1"; 
 
     window.onload = function() {
         semakDanResetHariBaharu(); 
         kemaskiniPaparanStaf(); 
-        setInterval(kemaskiniPaparanStaf, 2000); // Kemaskini skrin setiap 2 saat
+        setInterval(kemaskiniPaparanStaf, 2000); // Kemaskini paparan setiap 2 saat
     }
 
-    // SISTEM AUTO-RESET: Mengesan hari baharu berdasarkan tarikh waktu Malaysia
+    // SISTEM AUTO-RESET: Mengesan pertukaran hari mengikut tarikh Malaysia
     function semakDanResetHariBaharu() {
-        let hariIni = new Date().toLocaleDateString('sv-SE'); // Hasil format: YYYY-MM-DD
+        let hariIni = new Date().toLocaleDateString('sv-SE'); // Format standard: YYYY-MM-DD
         document.getElementById('infoTarikh').innerText = `Sesi Hari Ini: ${hariIni}`;
 
-        fetch(`${FIREBASE_URL}/tarikh_last_reset.json`)
+        fetch(BASE_DB_URL + "tarikh_last_reset.json")
             .then(res => res.json())
             .then(tarikhSimpanan => {
                 if (!tarikhSimpanan || tarikhSimpanan !== hariIni) {
-                    fetch(`${FIREBASE_URL}/.json`, { method: 'DELETE' })
+                    fetch(BASE_DB_URL + ".json", { method: 'DELETE' })
                     .then(() => {
-                        fetch(`${FIREBASE_URL}/tarikh_last_reset.json`, { method: 'PUT', body: JSON.stringify(hariIni) })
+                        fetch(BASE_DB_URL + "tarikh_last_reset.json", { method: 'PUT', body: JSON.stringify(hariIni) })
                         .then(() => { 
                             alert("Sistem mengesan hari baharu! Data giliran balai telah dikosongkan ke siri 1001."); 
                             location.reload(); 
                         });
                     });
                 }
-            }).catch(err => console.log("Ralat semakan tarikh automatik."));
+            }).catch(err => console.log("Menunggu sambungan database aktif..."));
     }
 
     function kemaskiniPaparanStaf() {
-        fetch(`${FIREBASE_URL}/kaunter${KAUNTER_ID}.json`)
+        fetch(BASE_DB_URL + "kaunter" + KAUNTER_ID + ".json")
             .then(res => res.json())
             .then(num => {
                 document.getElementById('noSemasaKaunter').innerText = num || "---";
-            });
+            }).catch(err => console.log("Ralat memaparkan nombor kaunter."));
     }
 
     function panggilSeterusnya() {
+        // Ambil data last_number dan current_called secara berasingan dengan URL Terus yang selamat
         Promise.all([
-            fetch(`${FIREBASE_URL}/last_number.json`).then(res => res.json()),
-            fetch(`${FIREBASE_URL}/current_called.json`).then(res => res.json())
+            fetch(BASE_DB_URL + "last_number.json").then(res => res.json()),
+            fetch(BASE_DB_URL + "current_called.json").then(res => res.json())
         ]).then(([lastNumber, currentCalled]) => {
             let last = lastNumber ? parseInt(lastNumber) : 1000;
             let current = currentCalled ? parseInt(currentCalled) : 1000;
@@ -90,17 +92,19 @@
 
             // Kemaskini data giliran global dan data khusus Kaunter 1 di Firebase
             Promise.all([
-                fetch(`${FIREBASE_URL}/current_called.json`, { method: 'PUT', body: JSON.stringify(nextToCall) }),
-                fetch(`${FIREBASE_URL}/kaunter${KAUNTER_ID}.json`, { method: 'PUT', body: JSON.stringify(nextToCall) })
+                fetch(BASE_DB_URL + "current_called.json", { method: 'PUT', body: JSON.stringify(nextToCall) }),
+                fetch(BASE_DB_URL + "kaunter" + KAUNTER_ID + ".json", { method: 'PUT', body: JSON.stringify(nextToCall) })
             ]).then(() => kemaskiniPaparanStaf());
+        }).catch(err => {
+            alert("Ralat sambungan rangkaian. Sila semak pautan URL Firebase anda.");
         });
     }
 
     function manualResetSistem() {
         if(confirm("Adakah anda pasti mahu set semula semua data giliran secara manual untuk hari ini?")) {
             let hariIni = new Date().toLocaleDateString('sv-SE');
-            fetch(`${FIREBASE_URL}/.json`, { method: 'DELETE' }).then(() => {
-                fetch(`${FIREBASE_URL}/tarikh_last_reset.json`, { method: 'PUT', body: JSON.stringify(hariIni) })
+            fetch(BASE_DB_URL + ".json", { method: 'DELETE' }).then(() => {
+                fetch(BASE_DB_URL + "tarikh_last_reset.json", { method: 'PUT', body: JSON.stringify(hariIni) })
                 .then(() => location.reload());
             });
         }
