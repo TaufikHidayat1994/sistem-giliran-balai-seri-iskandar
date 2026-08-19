@@ -16,6 +16,10 @@
         .nombor-anda { font-size: 56px; font-weight: bold; color: #2f855a; margin: 15px 0; letter-spacing: 2px; }
         .box-mesej { font-size: 16px; font-weight: bold; background: #feebc8; padding: 15px; border-radius: 8px; margin-top: 15px; line-height: 1.4; white-space: pre-line; border: 1px solid #fbd38d; }
     </style>
+
+    <!-- MEMUAT NAIK SKRIP FIREBASE KLASIK (TERBUKTI KALIS SEKATAN CORS BROWSER) -->
+    <script src="https://gstatic.com"></script>
+    <script src="https://gstatic.com"></script>
 </head>
 <body>
 
@@ -23,7 +27,6 @@
     <div class="logo-placeholder">Polis Diraja Malaysia</div>
     <h3 style="margin: 5px 0 15px 0; color: #003366;">Balai Polis Seri Iskandar</h3>
     
-    <!-- PAPARAN LIVE STATUS KAUNTER -->
     <div class="status-kedai">
         <strong>Nombor Giliran Aktif:</strong>
         <div style="display: flex; justify-content: space-around; margin-top: 10px;">
@@ -33,14 +36,12 @@
         </div>
     </div>
     
-    <!-- BORANG AMBIL NOMBOR GILIRAN -->
     <div id="borang-pendaftaran">
         <p style="font-size: 14px; color: #4a5568;">Sila masukkan nama untuk urusan rasmi balai.</p>
         <input type="text" id="namaPelanggan" placeholder="Nama Penuh Anda" required>
         <button id="btnAmbil" onclick="semakLokasiDanAmbil()">Ambil Tiket Giliran</button>
     </div>
 
-    <!-- PAPARAN TIKET AKTIF PELANGGAN -->
     <div id="paparan-tiket" style="display:none;">
         <p style="margin: 0; color: #4a5568;">Nombor Tiket Anda:</p>
         <div class="nombor-anda" id="noTiket">0000</div>
@@ -50,44 +51,36 @@
     </div>
 </div>
 
-<!-- Firebase Modular SDK Script -->
-<script type="module">
-    import { initializeApp } from "https://gstatic.com";
-    import { getDatabase, ref, set, get, onValue, runTransaction } from "https://gstatic.com";
-
-    // PENTING: Masukkan apiKey & appId rasmi anda di sini agar ia boleh bersambung dengan database anda
+<script>
+    // Konfigurasi Asas Menggunakan Pautan Database Sah Anda
     const firebaseConfig = {
-    apiKey: "AIzaSyDzR_aVqRuKQWTSeljaN-qHU2_lEeCgKr0",
-    authDomain: "giliran-balai-seri-iskandar.firebaseapp.com",    
-    databaseURL: "https://giliran-balai-seri-iskandar-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "giliran-balai-seri-iskandar",
-    storageBucket: "giliran-balai-seri-iskandar.firebasestorage.app",
-    messagingSenderId: "894844997172",
-    appId: "1:894844997172:web:5a7329add085d6d6e1c461",
-    measurementId: "G-VE9QG28VWY"
+        databaseURL: "https://firebasedatabase.app"
     };
 
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+    // Memulakan sambungan Firebase
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
 
     let currentCalledGlobal = 1000;
 
-    // 1. ISYTIHAR FUNGSI KLIK SECARA WINDOW MUTLAK (DI ATAS SEKALI TANPA SEKATAN KURUNGAN)
-    window.semakLokasiDanAmbil = function() {
+    // ISYTIHAR FUNGSI SECARA GLOBAL SECARA LANGSUNG (BEBAS type="module")
+    function semakLokasiDanAmbil() {
         let nama = document.getElementById('namaPelanggan').value.trim();
         if (!nama) { alert('Sila masukkan nama anda!'); return; }
 
         document.getElementById('btnAmbil').disabled = true;
         document.getElementById('btnAmbil').innerText = "⏳ Memproses...";
 
-        // Guna transaksi Firebase Modular untuk mengelakkan pertembungan data
-        const lastNumRef = ref(db, 'sistem_giliran/last_number');
-        runTransaction(lastNumRef, (currentNumber) => {
+        // Guna kahedah transaksi dalaman Firebase Klasik (Kalis ralat)
+        database.ref('sistem_giliran/last_number').transaction(function(currentNumber) {
             return (currentNumber || 1000) + 1;
-        }).then((result) => {
-            if (result.committed) {
-                let nextNumber = result.snapshot.val();
+        }, function(error, committed, snapshot) {
+            if (error) {
+                alert("Ralat sambungan database. Sila pastikan Rules Firebase adalah true.");
+                document.getElementById('btnAmbil').disabled = false;
+                document.getElementById('btnAmbil').innerText = "Ambil Tiket Giliran";
+            } else if (committed) {
+                let nextNumber = snapshot.val();
                 
                 // Simpan rekod dalam memori telefon
                 localStorage.setItem('bp_ticket_no', nextNumber);
@@ -95,22 +88,17 @@
                 
                 bukaSkrinTiket(nextNumber, nama);
             }
-        }).catch((error) => {
-            alert("Ralat pangkalan data. Sila semak semula Config Block Firebase anda.");
-            document.getElementById('btnAmbil').disabled = false;
-            document.getElementById('btnAmbil').innerText = "Ambil Tiket Giliran";
         });
-    };
+    }
 
-    // 2. KUNCI PERANTI: Semak memori peranti sewaktu halaman mula dimuatkan
-    window.addEventListener('DOMContentLoaded', () => {
+    // Semak memori peranti sewaktu halaman dimuatkan
+    window.onload = function() {
         let savedTicket = localStorage.getItem('bp_ticket_no');
         let savedName = localStorage.getItem('bp_ticket_name');
-        
         if (savedTicket && savedName) {
             bukaSkrinTiket(savedTicket, savedName);
         }
-    });
+    };
 
     function bukaSkrinTiket(noTiket, nama) {
         document.getElementById('borang-pendaftaran').style.display = 'none';
@@ -119,8 +107,8 @@
         document.getElementById('namaTiket').innerText = nama;
     }
 
-    // 3. PEMANTAUAN MASA NYATA DATA REALTIME DATABASE
-    onValue(ref(db, 'sistem_giliran'), (snapshot) => {
+    // PEMANTAUAN MASA NYATA DATA REALTIME DATABASE
+    database.ref('sistem_giliran').on('value', function(snapshot) {
         const data = snapshot.val();
         if (!data) return;
 
