@@ -5,112 +5,242 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Tiket Digital Balai Polis Seri Iskandar</title>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; background-color: #f0f4f8; }
-        .card { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: inline-block; max-width: 350px; width: 100%; box-sizing: border-box; border-top: 6px solid #003366; }
-        .live-no { font-size: 24px; font-weight: bold; color: #e53e3e; }
-        button { background-color: #003366; color: white; border: none; padding: 14px; font-size: 16px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 15px; }
+        body { font-family: Arial, sans-serif; text-align: center; padding: 15px; background-color: #f0f4f8; color: #1a202c; }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); display: inline-block; max-width: 360px; width: 100%; box-sizing: border-box; border-top: 6px solid #003366; }
+        .logo-placeholder { font-size: 14px; font-weight: bold; color: #003366; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        .status-kedai { background: #edf2f7; padding: 12px; border-radius: 10px; margin-bottom: 20px; font-size: 15px; border: 1px solid #cbd5e0; }
+        .live-no { font-size: 28px; font-weight: bold; color: #e53e3e; display: block; margin-top: 5px; }
+        button { background-color: #003366; color: white; border: none; padding: 14px; font-size: 16px; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: bold; }
+        button:disabled { background-color: #a0aec0; cursor: not-allowed; }
         input { width: 100%; padding: 12px; margin-top: 10px; font-size: 16px; border-radius: 8px; border: 1px solid #cbd5e0; box-sizing: border-box; }
-        .nombor-anda { font-size: 56px; font-weight: bold; color: #2f855a; margin: 15px 0; }
+        .nombor-anda { font-size: 56px; font-weight: bold; color: #2f855a; margin: 15px 0; letter-spacing: 2px; }
+        .alert-btn { background-color: #dd6b20; font-size: 14px; margin-bottom: 15px; padding: 10px; }
+        .box-mesej { font-size: 16px; font-weight: bold; background: #feebc8; padding: 15px; border-radius: 8px; margin-top: 15px; line-height: 1.4; white-space: pre-line; border: 1px solid #fbd38d; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>Balai Polis Seri Iskandar</h2>
-    <p>Sila masukkan nama untuk urusan rasmi balai.</p>
+    <div class="logo-placeholder">Polis Diraja Malaysia</div>
+    <h3 style="margin: 5px 0 15px 0; color: #003366;">Balai Polis Seri Iskandar</h3>
     
+    <!-- PAPARAN LIVE STATUS KAUNTER -->
+    <div class="status-kedai">
+        <strong>Nombor Giliran Aktif:</strong>
+        <div style="display: flex; justify-content: space-around; margin-top: 10px;">
+            <div>Kaunter 1<span id="liveK1" class="live-no">0000</span></div>
+            <div style="border-left: 1px solid #cbd5e0;"></div>
+            <div>Kaunter 2<span id="liveK2" class="live-no">0000</span></div>
+        </div>
+    </div>
+    
+    <!-- BORANG AMBIL NOMBOR GILIRAN -->
     <div id="borang-pendaftaran">
+        <p style="font-size: 14px; color: #4a5568;">Sila masukkan nama untuk urusan rasmi balai.</p>
         <input type="text" id="namaPelanggan" placeholder="Nama Penuh Anda" required>
         <button id="btnAmbil" onclick="semakLokasiDanAmbil()">Ambil Tiket Giliran</button>
     </div>
 
+    <!-- PAPARAN TIKET AKTIF PELANGGAN -->
     <div id="paparan-tiket" style="display:none;">
-        <p>Nombor Tiket Anda:</p>
-        <div class="nombor-anda" id="noTiket">---</div>
-        <p>Nama: <strong id="namaTiket">-</strong></p>
-        <p style="color:#666;">Sila tunggu sehingga nombor anda dipanggil oleh pegawai kaunter.</p>
+        <button class="alert-btn" id="btnIzin" onclick="mintaIzinNotifikasi()">🔔 Aktifkan Kebenaran Alert Bunyi</button>
+        <p style="margin: 0; color: #4a5568;">Nombor Tiket Anda:</p>
+        <div class="nombor-anda" id="noTiket">0000</div>
+        <p style="margin: 0 0 10px 0;">Nama: <strong id="namaTiket">-</strong></p>
+        <div class="box-mesej" id="statusMesej">Memuatkan status barisan...</div>
+        <button onclick="lepaskanTiketSelesai()" style="background-color: #718096; font-size: 12px; padding: 8px; width: auto; margin-top: 20px;">Urusan Selesai / Tiket Baru</button>
     </div>
 </div>
 
-<script>
-       // GANTIKAN DUA BARIS URL LAMA ANDA DENGAN DUA BARIS KOD PINTAR INI:
-    const FIREBASE_URL = "https://firebasedatabase.app";
-    
-    // Penambahan '?auth=null' memaksa Firebase menerima kemasukan REST API awam tanpa sekatan token
-    const TARGET_URL = "https://firebasedatabase.applast_number.json?auth=null";
+<!-- Firebase Modular SDK Script -->
+<script type="module">
+    import { initializeApp } from "https://gstatic.com";
+    import { getDatabase, ref, set, get, onValue, runTransaction } from "https://gstatic.com";
 
+    // 1. SILA MASUKKAN PROFIL CONFIGURATION FIREBASE ANDA DI SINI
+    const firebaseConfig = {
+        apiKey: "PASTE_YOUR_NEW_API_KEY_HERE",
+        authDomain: "giliran-balai-seri-iskandar.firebaseapp.com",
+        databaseURL: "https://firebasedatabase.app",
+        projectId: "giliran-balai-seri-iskandar",
+        storageBucket: "giliran-balai-seri-iskandar.appspot.com",
+        messagingSenderId: "894844997172",
+        appId: "PASTE_YOUR_NEW_APP_ID_HERE"
+    };
 
-    function semakLokasiDanAmbil() {
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // Koordinat GPS Geofencing Balai Polis Seri Iskandar
+    const KEDAI_LAT = 4.36758;         
+    const KEDAI_LNG = 100.95785;       
+    const UTK_JARAK_MAKSIMUM = 50; // Jarak dalam meter (Ubah ke 999999 semasa ujian di rumah)
+
+    let sudahDiberitahu = false;
+    let audioCtx = null;
+    let k1Global = 0, k2Global = 0, currentCalledGlobal = 0;
+
+    // KUNCI PERANTI: Semak memori peranti sewaktu halaman dimuatkan
+    window.addEventListener('DOMContentLoaded', () => {
+        let savedTicket = localStorage.getItem('bp_ticket_no');
+        let savedName = localStorage.getItem('bp_ticket_name');
+        
+        if (savedTicket && savedName) {
+            let noSayaInt = parseInt(savedTicket);
+            get(ref(db, 'sistem_giliran/current_called')).then((snapshot) => {
+                let dipanggilSemasa = snapshot.exists() ? parseInt(snapshot.val()) : 1000;
+                if (dipanggilSemasa >= noSayaInt) {
+                    localStorage.removeItem('bp_ticket_no');
+                    localStorage.removeItem('bp_ticket_name');
+                } else {
+                    bukaSkrinTiket(savedTicket, savedName);
+                }
+            });
+        }
+    });
+
+    function bukaSkrinTiket(noTiket, nama) {
+        document.getElementById('borang-pendaftaran').style.display = 'none';
+        document.getElementById('paparan-tiket').style.display = 'block';
+        document.getElementById('noTiket').innerText = String(noTiket).padStart(4, '0');
+        document.getElementById('namaTiket').innerText = nama;
+    }
+
+    // PEMANTAUAN MASA NYATA DATA REALTIME DATABASE
+    onValue(ref(db, 'sistem_giliran'), (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+
+        k1Global = data.kaunter1 || 0;
+        k2Global = data.kaunter2 || 0;
+        currentCalledGlobal = data.current_called || 1000;
+
+        document.getElementById('liveK1').innerText = String(k1Global).padStart(4, '0');
+        document.getElementById('liveK2').innerText = String(k2Global).padStart(4, '0');
+        
+        let savedTicket = localStorage.getItem('bp_ticket_no');
+        if (savedTicket) {
+            let noSayaInt = parseInt(savedTicket);
+            if (k1Global === noSayaInt) {
+                setMesejDipanggil(1);
+            } else if (k2Global === noSayaInt) {
+                setMesejDipanggil(2);
+            } else if (currentCalledGlobal >= noSayaInt) {
+                document.getElementById('statusMesej').innerText = "❌ NOMBOR ANDA TELAH TERLEPAS!\nSila maklumkan kepada petugas kaunter.";
+                document.getElementById('statusMesej').style.backgroundColor = "#fed7d7";
+                document.getElementById('statusMesej').style.color = "#9b2c2c";
+            } else {
+                let baki = noSayaInt - currentCalledGlobal;
+                document.getElementById('statusMesej').innerText = `⏳ Mohon bersiap sedia.\nAda ${baki} giliran sebelum nombor anda dipanggil.`;
+                document.getElementById('statusMesej').style.backgroundColor = "#feebc8";
+                document.getElementById('statusMesej').style.color = "#c05621";
+            }
+        }
+    });
+
+    // PANGGILAN GEOLOCATION GPS
+    window.semakLokasiDanAmbil = function() {
         let nama = document.getElementById('namaPelanggan').value.trim();
-        if (!nama) { 
-            alert('Sila masukkan nama anda!'); 
-            return; 
+        if (!nama) { alert('Sila masukkan nama anda!'); return; }
+
+        let btn = document.getElementById('btnAmbil');
+        btn.disabled = true;
+        btn.innerText = "🚨 Menyemak Kedudukan GPS...";
+
+        if (!navigator.geolocation) {
+            alert("Peranti anda tidak menyokong akses lokasi.");
+            resetButangAmbil();
+            return;
         }
 
-        // Tukar status butang menjadi memproses
-        document.getElementById('btnAmbil').innerText = "⏳ Memproses...";
-        document.getElementById('btnAmbil').disabled = true;
+        navigator.geolocation.getCurrentPosition((position) => {
+            let userLat = position.coords.latitude;
+            let userLng = position.coords.longitude;
+            let jarak = kiraJarakMeter(KEDAI_LAT, KEDAI_LNG, userLat, userLng);
+            
+            if (jarak > UTK_JARAK_MAKSIMUM) {
+                alert(`Pendaftaran Disekat!\n\nAnda dikesan berada ${Math.round(jarak)}m dari Balai Polis Seri Iskandar. Anda mesti hadir secara fizikal di balai untuk mendaftar.`);
+                resetButangAmbil();
+                return;
+            }
+            prosesAmbilNomborKeFirebase(nama);
+        }, (error) => {
+            alert("Akses GPS Ditolak! Sila benarkan tetapan lokasi ('Location Access') pada telefon.");
+            resetButangAmbil();
+        }, { enableHighAccuracy: true, timeout: 10000 });
+    };
 
-        // Ambil data nombor terakhir dari Firebase
-        fetch(TARGET_URL)
-            .then(res => {
-                if (!res.ok) { throw new Error("Respons gagal"); }
-                return res.json();
-            })
-            .then(lastNumber => {
-                // Jika database kosong, mulakan dari 1001
-                let nextNumber = lastNumber ? parseInt(lastNumber) + 1 : 1001;
-
-                // Hantar dan kemaskini data nombor siri giliran baharu ke Firebase
-                fetch(TARGET_URL, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(nextNumber)
-                }).then(() => {
-                    // Paparkan tiket dengan jaya pada skrin peranti pelanggan
-                    document.getElementById('borang-pendaftaran').style.display = 'none';
-                    document.getElementById('paparan-tiket').style.display = 'block';
-                    document.getElementById('noTiket').innerText = nextNumber;
-                    document.getElementById('namaTiket').innerText = nama;
-                }).catch(err => {
-                    alert("Gagal mengemas kini data baharu ke Firebase.");
-                    resetButangAsal();
-                });
-            }).catch(err => {
-                alert("Ralat sambungan database. Sila pastikan pautan URL Firebase ditaip dengan betul tanpa kesilapan ejaan.");
-                resetButangAsal();
-            });
+    function resetButangAmbil() {
+        let btn = document.getElementById('btnAmbil');
+        btn.disabled = false;
+        btn.innerText = "Ambil Tiket Giliran";
     }
 
-    function resetButangAsal() {
-        document.getElementById('btnAmbil').innerText = "Ambil Tiket Giliran";
-        document.getElementById('btnAmbil').disabled = false;
+    function kiraJarakMeter(lat1, lon1, lat2, lon2) {
+        let R = 6371e3; 
+        let p1 = lat1 * Math.PI/180; let p2 = lat2 * Math.PI/180;
+        let deltaP = (lat2-lat1) * Math.PI/180; let deltaL = (lon2-lon1) * Math.PI/180;
+        let a = Math.sin(deltaP/2) * Math.sin(deltaP/2) + Math.cos(p1) * Math.cos(p2) * Math.sin(deltaL/2) * Math.sin(deltaL/2);
+        return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
     }
 
-    function pantauSistem() {
-        fetch(FIREBASE_URL + ".json")
-            .then(res => res.json())
-            .then(data => {
-                if(!data) return;
-                document.getElementById('liveK1').innerText = data.kaunter1 || "---";
-                document.getElementById('liveK2').innerText = data.kaunter2 || "---";
-            });
+    function prosesAmbilNomborKeFirebase(nama) {
+        const lastNumRef = ref(db, 'sistem_giliran/last_number');
+        runTransaction(lastNumRef, (currentNumber) => {
+            return (currentNumber || 1000) + 1;
+        }).then((result) => {
+            if (result.committed) {
+                let nextNumber = result.snapshot.val();
+
+localStorage.setItem('bp_ticket_no', nextNumber);
+                localStorage.setItem('bp_ticket_name', nama);
+                bukaSkrinTiket(nextNumber, nama);
+                sudahDiberitahu = false;resetButangAmbil();
+            }
+        });
     }
-    setInterval(pantauSistem, 2000);
-
-    function mintaIzinNotifikasi() {
-        alert("Sistem isyarat bunyi sedia diaktifkan.");
-        document.getElementById('btnIzin').style.display = 'none';
+    function setMesejDipanggil(nomborKaunter) 
+    {
+        document.getElementById('statusMesej').innerText = 🔔 SILA KE KAUNTER ${nomborKaunter} SEKARANG!\nPegawai bertugas sedang menunggu anda.;
+        document.getElementById('statusMesej').style.backgroundColor = "#c6f6d5";document.getElementById('statusMesej').style.color = "#22543d";
+        if (!sudahDiberitahu) { cetusAmaranTelefon(nomborKaunter); sudahDiberitahu = true; }
     }
-
-    function lepaskanTiketSelesai() {
-        localStorage.removeItem('bp_ticket_no');
-        localStorage.removeItem('bp_ticket_name');
-        location.reload();
+    
+    function cetusAmaranTelefon(kaunter) {
+        if (audioCtx) { mainBunyi(659.25, 0.2); setTimeout(() => mainBunyi(880.00, 0.4), 250);
+                      }
+        if ("vibrate" in navigator) { navigator.vibrate();
+                                    }
+        if ("Notification" in window && Notification.permission === "granted") {new Notification("Panggilan Giliran Balai", { body: Nombor anda dipanggil ke Kaunter ${kaunter} });
     }
-</script>
-
-
-
-</body>
-</html>
+    }
+    
+    function mainBunyi(frekuensi, durasi) {if(!audioCtx) return;
+                                           let osc = audioCtx.createOscillator(); 
+                                           let gain = audioCtx.createGain();osc.type = "sine"; 
+                                           osc.frequency.value = frekuensi;gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                                           osc.connect(gain); gain.connect(audioCtx.destination);
+                                           osc.start(); setTimeout(() => osc.stop(), durasi * 1000);
+                                          }
+    
+    window.mintaIzinNotifikasi = function() {audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                                             if ("Notification" in window) {Notification.requestPermission().then(permission => {
+                                                 if (permission === "granted") { alert("Sistem amaran aktif."); 
+                                                                                document.getElementById('btnIzin').style.display = 'none';
+                                                                               }
+                                             });
+                                                                           }
+                                             else { alert("Sistem isyarat bunyi aktif."); document.getElementById('btnIzin').style.display = 'none';}
+                                            };
+    
+    window.lepaskanTiketSelesai = function() {let savedTicket = localStorage.getItem('bp_ticket_no');
+                                              if (!savedTicket) return;let noSayaInt = parseInt(savedTicket);
+                                              if (currentCalledGlobal >= noSayaInt) {localStorage.removeItem('bp_ticket_no');
+                                                                                     localStorage.removeItem('bp_ticket_name');
+                                                                                     alert("Rekod selesai. Anda dibenarkan mendaftar nombor giliran urusan kedua.");
+                                                                                     location.reload();} 
+                                              else {let baki = noSayaInt - currentCalledGlobal;
+                                                    alert(SEKATAN AMANAH!\n\nNombor giliran anda belum dipanggil oleh pegawai kaunter (Baki menunggu: ${baki} orang).);
+                                                   }
+                                             };
