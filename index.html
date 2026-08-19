@@ -57,16 +57,16 @@
     import { initializeApp } from "https://gstatic.com";
     import { getDatabase, ref, set, get, onValue, runTransaction } from "https://gstatic.com";
 
-    // 1. SILA MASUKKAN PROFIL CONFIGURATION FIREBASE ANDA DI SINI
+    // Configuration Firebase Realtime Database anda
     const firebaseConfig = {
         apiKey: "AIzaSyDzR_aVqRuKQWTSeljaN-qHU2_lEeCgKr0",
-       authDomain: "giliran-balai-seri-iskandar.firebaseapp.com",
-      databaseURL: "https://giliran-balai-seri-iskandar-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "giliran-balai-seri-iskandar",
-      storageBucket: "giliran-balai-seri-iskandar.firebasestorage.app",
-      messagingSenderId: "894844997172",
-      appId: "1:894844997172:web:5a7329add085d6d6e1c461",
-      measurementId: "G-VE9QG28VWY"
+        authDomain: "giliran-balai-seri-iskandar.firebaseapp.com",
+        databaseURL: "https://giliran-balai-seri-iskandar-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "giliran-balai-seri-iskandar",
+        storageBucket: "giliran-balai-seri-iskandar.firebasestorage.app",
+        messagingSenderId: "894844997172",
+        appId: "1:894844997172:web:5a7329add085d6d6e1c461",
+        measurementId: "G-VE9QG28VWY"
     };
 
     // Initialize Firebase
@@ -76,7 +76,7 @@
     // Koordinat GPS Geofencing Balai Polis Seri Iskandar
     const KEDAI_LAT = 4.36758;         
     const KEDAI_LNG = 100.95785;       
-    const UTK_JARAK_MAKSIMUM = 9999999; // Jarak dalam meter (Ubah ke 999999 semasa ujian di rumah)
+    const UTK_JARAK_MAKSIMUM = 999999; // Set kepada bebas jarak dahulu untuk ujian di rumah anda
 
     let sudahDiberitahu = false;
     let audioCtx = null;
@@ -140,7 +140,7 @@
         }
     });
 
-    // PANGGILAN GEOLOCATION GPS
+    // PANGGILAN GEOLOCATION GPS (Ditubuhkan sebagai Skop Global window.)
     window.semakLokasiDanAmbil = function() {
         let nama = document.getElementById('namaPelanggan').value.trim();
         if (!nama) { alert('Sila masukkan nama anda!'); return; }
@@ -161,7 +161,7 @@
             let jarak = kiraJarakMeter(KEDAI_LAT, KEDAI_LNG, userLat, userLng);
             
             if (jarak > UTK_JARAK_MAKSIMUM) {
-                alert(`Pendaftaran Disekat!\n\nAnda dikesan berada ${Math.round(jarak)}m dari Balai Polis Seri Iskandar. Anda mesti hadir secara fizikal di balai untuk mendaftar.`);
+                alert(`Pendaftaran Disekat!\n\nAnda dikesan berada terlalu jauh dari Balai Polis Seri Iskandar.`);
                 resetButangAmbil();
                 return;
             }
@@ -193,55 +193,6 @@
         }).then((result) => {
             if (result.committed) {
                 let nextNumber = result.snapshot.val();
+                localStorage.setItem('bp_ticket_no', nextNumber);
 
-localStorage.setItem('bp_ticket_no', nextNumber);
-                localStorage.setItem('bp_ticket_name', nama);
-                bukaSkrinTiket(nextNumber, nama);
-                sudahDiberitahu = false;resetButangAmbil();
-            }
-        });
-    }
-    function setMesejDipanggil(nomborKaunter) 
-    {
-        document.getElementById('statusMesej').innerText = 🔔 SILA KE KAUNTER ${nomborKaunter} SEKARANG!\nPegawai bertugas sedang menunggu anda.;
-        document.getElementById('statusMesej').style.backgroundColor = "#c6f6d5";document.getElementById('statusMesej').style.color = "#22543d";
-        if (!sudahDiberitahu) { cetusAmaranTelefon(nomborKaunter); sudahDiberitahu = true; }
-    }
-    
-    function cetusAmaranTelefon(kaunter) {
-        if (audioCtx) { mainBunyi(659.25, 0.2); setTimeout(() => mainBunyi(880.00, 0.4), 250);
-                      }
-        if ("vibrate" in navigator) { navigator.vibrate();
-                                    }
-        if ("Notification" in window && Notification.permission === "granted") {new Notification("Panggilan Giliran Balai", { body: Nombor anda dipanggil ke Kaunter ${kaunter} });
-    }
-    }
-    
-    function mainBunyi(frekuensi, durasi) {if(!audioCtx) return;
-                                           let osc = audioCtx.createOscillator(); 
-                                           let gain = audioCtx.createGain();osc.type = "sine"; 
-                                           osc.frequency.value = frekuensi;gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
-                                           osc.connect(gain); gain.connect(audioCtx.destination);
-                                           osc.start(); setTimeout(() => osc.stop(), durasi * 1000);
-                                          }
-    
-    window.mintaIzinNotifikasi = function() {audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                                             if ("Notification" in window) {Notification.requestPermission().then(permission => {
-                                                 if (permission === "granted") { alert("Sistem amaran aktif."); 
-                                                                                document.getElementById('btnIzin').style.display = 'none';
-                                                                               }
-                                             });
-                                                                           }
-                                             else { alert("Sistem isyarat bunyi aktif."); document.getElementById('btnIzin').style.display = 'none';}
-                                            };
-    
-    window.lepaskanTiketSelesai = function() {let savedTicket = localStorage.getItem('bp_ticket_no');
-                                              if (!savedTicket) return;let noSayaInt = parseInt(savedTicket);
-                                              if (currentCalledGlobal >= noSayaInt) {localStorage.removeItem('bp_ticket_no');
-                                                                                     localStorage.removeItem('bp_ticket_name');
-                                                                                     alert("Rekod selesai. Anda dibenarkan mendaftar nombor giliran urusan kedua.");
-                                                                                     location.reload();} 
-                                              else {let baki = noSayaInt - currentCalledGlobal;
-                                                    alert(SEKATAN AMANAH!\n\nNombor giliran anda belum dipanggil oleh pegawai kaunter (Baki menunggu: ${baki} orang).);
-                                                   }
-                                             };
+            localStorage.setItem('bp_ticket_name', nama);bukaSkrinTiket(nextNumber, nama);sudahDiberitahu = false;resetButangAmbil();}});}function setMesejDipanggil(nomborKaunter) {document.getElementById('statusMesej').innerText = 🔔 SILA KE KAUNTER ${nomborKaunter} SEKARANG!\nPegawai bertugas sedang menunggu anda.;document.getElementById('statusMesej').style.backgroundColor = "#c6f6d5";document.getElementById('statusMesej').style.color = "#22543d";if (!sudahDiberitahu) { cetusAmaranTelefon(nomborKaunter); sudahDiberitahu = true; }}function cetusAmaranTelefon(kaunter) {if (audioCtx) { mainBunyi(659.25, 0.2); setTimeout(() => mainBunyi(880.00, 0.4), 250); }if ("vibrate" in navigator) { navigator.vibrate(); }if ("Notification" in window && Notification.permission === "granted") {new Notification("Panggilan Giliran Balai", { body: Nombor anda dipanggil ke Kaunter ${kaunter} });}}function mainBunyi(frekuensi, durasi) {if(!audioCtx) return;let osc = audioCtx.createOscillator(); let gain = audioCtx.createGain();osc.type = "sine"; osc.frequency.value = frekuensi;gain.gain.setValueAtTime(0.5, audioCtx.currentTime);osc.connect(gain); gain.connect(audioCtx.destination);osc.start(); setTimeout(() => osc.stop(), durasi * 1000);}window.mintaIzinNotifikasi = function() {audioCtx = new (window.AudioContext || window.webkitAudioContext)();if ("Notification" in window) {Notification.requestPermission().then(permission => {if (permission === "granted") { alert("Sistem amaran aktif."); document.getElementById('btnIzin').style.display = 'none'; }});} else { alert("Sistem isyarat bunyi aktif."); document.getElementById('btnIzin').style.display = 'none'; }};window.lepaskanTiketSelesai = function() {let savedTicket = localStorage.getItem('bp_ticket_no');if (!savedTicket) return;let noSayaInt = parseInt(savedTicket);if (currentCalledGlobal >= noSayaInt) {localStorage.removeItem('bp_ticket_no');localStorage.removeItem('bp_ticket_name');alert("Rekod selesai. Anda dibenarkan mendaftar nombor giliran urusan kedua.");location.reload();} else {let baki = noSayaInt - currentCalledGlobal;alert(SEKATAN AMANAH!\n\nNombor giliran anda belum dipanggil oleh pegawai kaunter (Baki menunggu: ${baki} orang).);}};
