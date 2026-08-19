@@ -16,10 +16,6 @@
         .nombor-anda { font-size: 56px; font-weight: bold; color: #2f855a; margin: 15px 0; letter-spacing: 2px; }
         .box-mesej { font-size: 16px; font-weight: bold; background: #feebc8; padding: 15px; border-radius: 8px; margin-top: 15px; line-height: 1.4; white-space: pre-line; border: 1px solid #fbd38d; }
     </style>
-
-    <!-- MENGGUNAKAN CDN JSDELIVR YANG RELEVAN DAN SAH -->
-    <script src="https://jsdelivr.net"></script>
-    <script src="https://jsdelivr.net"></script>
 </head>
 <body>
 
@@ -52,18 +48,12 @@
 </div>
 
 <script>
-    // 1. Tetapan konfigurasi rasmi Firebase Klasik (v8)
-    const firebaseConfig = {
-        databaseURL: "https://firebasedatabase.app"
-    };
-
-    // 2. Memulakan aplikasi Firebase secara mutlak
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    // MENGGUNA JALAN PINTAS REST API TERUS TANPA PERLU MEMUAT TURUN FILE SDK GOOGLE/JSDELIVR
+    const URL_TARGET = "https://firebasedatabase.app";
+    const URL_LAST_NUMBER = "https://firebasedatabase.app";
 
     var currentCalledGlobal = 1000;
 
-    // 3. Fungsi ambil nombor yang dipicu oleh butang HTML
     function semakLokasiDanAmbil() {
         var nama = document.getElementById('namaPelanggan').value.trim();
         if (!nama) { alert('Sila masukkan nama anda!'); return; }
@@ -71,22 +61,30 @@
         document.getElementById('btnAmbil').disabled = true;
         document.getElementById('btnAmbil').innerText = "⏳ Memproses...";
 
-        // Menggunakan pembolehubah db.ref() yang telah diisytiharkan dengan betul
-        db.ref('sistem_giliran/last_number').transaction(function(currentNumber) {
-            return (currentNumber || 1000) + 1;
-        }, function(error, committed, snapshot) {
-            if (error) {
-                alert("Ralat sambungan database Firebase.");
+        // 1. Ambil nombor terakhir menggunakan FETCH asli browser (Kalis sebarang ralat is not defined)
+        fetch(URL_LAST_NUMBER)
+            .then(function(res) { return res.json(); })
+            .then(function(lastNumber) {
+                var nextNumber = lastNumber ? parseInt(lastNumber) + 1 : 1001;
+
+                // 2. Kemaskini nombor baru ke Firebase
+                fetch(URL_LAST_NUMBER, {
+                    method: 'PUT',
+                    body: JSON.stringify(nextNumber)
+                }).then(function() {
+                    // Simpan rekod memori
+                    localStorage.setItem('bp_ticket_no', nextNumber);
+                    localStorage.setItem('bp_ticket_name', nama);
+                    
+                    bukaSkrinTiket(nextNumber, nama);
+                }).catch(function() {
+                    alert("Ralat menghantar data.");
+                    resetButangAsal();
+                });
+            }).catch(function() {
+                alert("Gagal berhubung dengan pelayan Firebase. Sila pastikan laptop anda mempunyai akses internet.");
                 resetButangAsal();
-            } else if (committed) {
-                var nextNumber = snapshot.val();
-                
-                localStorage.setItem('bp_ticket_no', nextNumber);
-                localStorage.setItem('bp_ticket_name', nama);
-                
-                bukaSkrinTiket(nextNumber, nama);
-            }
-        });
+            });
     }
 
     function resetButangAsal() {
@@ -101,6 +99,7 @@
         document.getElementById('namaTiket').innerText = nama;
     }
 
+    // Semak memori tiket sewaktu halaman dimuatkan
     window.addEventListener('load', function() {
         var savedTicket = localStorage.getItem('bp_ticket_no');
         var savedName = localStorage.getItem('bp_ticket_name');
@@ -109,41 +108,45 @@
         }
     });
 
-    // Menggunakan pembolehubah db.ref() untuk penstriman data secara langsung
-    db.ref('sistem_giliran').on('value', function(snapshot) {
-        var data = snapshot.val();
-        if (!data) return;
+    // Fungsi membaca status live secara berkala
+    function pantauSistem() {
+        fetch(URL_TARGET)
+            .then(function(res) { return res.json(); })
+            .then(function(data) {
+                if (!data) return;
 
-        var k1 = data.kaunter1 || 0;
-        var k2 = data.kaunter2 || 0;
-        currentCalledGlobal = data.current_called || 1000;
+                var k1 = data.kaunter1 || 0;
+                var k2 = data.kaunter2 || 0;
+                currentCalledGlobal = data.current_called || 1000;
 
-        document.getElementById('liveK1').innerText = String(k1).padStart(4, '0');
-        document.getElementById('liveK2').innerText = String(k2).padStart(4, '0');
-        
-        var savedTicket = localStorage.getItem('bp_ticket_no');
-        if (savedTicket) {
-            var noSayaInt = parseInt(savedTicket);
-            if (k1 === noSayaInt) {
-                document.getElementById('statusMesej').innerText = "🔔 SILA KE KAUNTER 1 SEKARANG!\nPegawai sedang menunggu anda.";
-                document.getElementById('statusMesej').style.backgroundColor = "#c6f6d5";
-                document.getElementById('statusMesej').style.color = "#22543d";
-            } else if (k2 === noSayaInt) {
-                document.getElementById('statusMesej').innerText = "🔔 SILA KE KAUNTER 2 SEKARANG!\nPegawai sedang menunggu anda.";
-                document.getElementById('statusMesej').style.backgroundColor = "#c6f6d5";
-                document.getElementById('statusMesej').style.color = "#22543d";
-            } else if (currentCalledGlobal >= noSayaInt) {
-                document.getElementById('statusMesej').innerText = "❌ NOMBOR ANDA TELAH TERLEPAS!\nSila maklumkan kepada petugas kaunter.";
-                document.getElementById('statusMesej').style.backgroundColor = "#fed7d7";
-                document.getElementById('statusMesej').style.color = "#9b2c2c";
-            } else {
-                var baki = noSayaInt - currentCalledGlobal;
-                document.getElementById('statusMesej').innerText = `⏳ Mohon bersiap sedia.\nAda ${baki} giliran sebelum nombor anda dipanggil.`;
-                document.getElementById('statusMesej').style.backgroundColor = "#feebc8";
-                document.getElementById('statusMesej').style.color = "#c05621";
-            }
-        }
-    });
+                document.getElementById('liveK1').innerText = String(k1).padStart(4, '0');
+                document.getElementById('liveK2').innerText = String(k2).padStart(4, '0');
+                
+                var savedTicket = localStorage.getItem('bp_ticket_no');
+                if (savedTicket) {
+                    var noSayaInt = parseInt(savedTicket);
+                    if (k1 === noSayaInt) {
+                        document.getElementById('statusMesej').innerText = "🔔 SILA KE KAUNTER 1 SEKARANG!\nPegawai sedang menunggu anda.";
+                        document.getElementById('statusMesej').style.backgroundColor = "#c6f6d5";
+                        document.getElementById('statusMesej').style.color = "#22543d";
+                    } else if (k2 === noSayaInt) {
+                        document.getElementById('statusMesej').innerText = "🔔 SILA KE KAUNTER 2 SEKARANG!\nPegawai sedang menunggu anda.";
+                        document.getElementById('statusMesej').style.backgroundColor = "#c6f6d5";
+                        document.getElementById('statusMesej').style.color = "#22543d";
+                    } else if (currentCalledGlobal >= noSayaInt) {
+                        document.getElementById('statusMesej').innerText = "❌ NOMBOR ANDA TELAH TERLEPAS!\nSila maklumkan kepada petugas kaunter.";
+                        document.getElementById('statusMesej').style.backgroundColor = "#fed7d7";
+                        document.getElementById('statusMesej').style.color = "#9b2c2c";
+                    } else {
+                        var baki = noSayaInt - currentCalledGlobal;
+                        document.getElementById('statusMesej').innerText = `⏳ Mohon bersiap sedia.\nAda ${baki} giliran sebelum nombor anda dipanggil.`;
+                        document.getElementById('statusMesej').style.backgroundColor = "#feebc8";
+                        document.getElementById('statusMesej').style.color = "#c05621";
+                    }
+                }
+            });
+    }
+    setInterval(pantauSistem, 2000); // Kemaskini status setiap 2 saat
 </script>
 </body>
 </html>
