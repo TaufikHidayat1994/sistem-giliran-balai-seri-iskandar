@@ -17,9 +17,9 @@
         .box-mesej { font-size: 16px; font-weight: bold; background: #feebc8; padding: 15px; border-radius: 8px; margin-top: 15px; line-height: 1.4; white-space: pre-line; border: 1px solid #fbd38d; }
     </style>
 
-    <!-- BLOK 1: MUAT TURUN PERPUSTAKAAN FIREBASE DARI SERVERN CDNJ GLOBAL -->
-    <script src="https://cloudflare.com"></script>
-    <script src="https://cloudflare.com"></script>
+    <!-- MENGGUNAKAN CDN JSDELIVR YANG RELEVAN DAN SAH -->
+    <script src="https://jsdelivr.net"></script>
+    <script src="https://jsdelivr.net"></script>
 </head>
 <body>
 
@@ -51,21 +51,19 @@
     </div>
 </div>
 
-<!-- BLOK 2: MEMULAKAN SAMBUNGAN PANGKALAN DATA (INITIALIZATION) -->
 <script>
+    // 1. Tetapan konfigurasi rasmi Firebase Klasik (v8)
     const firebaseConfig = {
         databaseURL: "https://firebasedatabase.app"
     };
 
-    // Daftarkan aplikasi ke server Google
+    // 2. Memulakan aplikasi Firebase secara mutlak
     firebase.initializeApp(firebaseConfig);
-    var database = firebase.database();
-</script>
+    const db = firebase.database();
 
-<!-- BLOK 3: LOGIK OPERASI FUNGSI BUTANG DAN LIVE UPDATE -->
-<script>
     var currentCalledGlobal = 1000;
 
+    // 3. Fungsi ambil nombor yang dipicu oleh butang HTML
     function semakLokasiDanAmbil() {
         var nama = document.getElementById('namaPelanggan').value.trim();
         if (!nama) { alert('Sila masukkan nama anda!'); return; }
@@ -73,17 +71,16 @@
         document.getElementById('btnAmbil').disabled = true;
         document.getElementById('btnAmbil').innerText = "⏳ Memproses...";
 
-        // Guna transaksi Firebase Klasik
-        database.ref('sistem_giliran/last_number').transaction(function(currentNumber) {
+        // Menggunakan pembolehubah db.ref() yang telah diisytiharkan dengan betul
+        db.ref('sistem_giliran/last_number').transaction(function(currentNumber) {
             return (currentNumber || 1000) + 1;
         }, function(error, committed, snapshot) {
             if (error) {
-                alert("Ralat pangkalan data. Sila semak semula rules Firebase.");
+                alert("Ralat sambungan database Firebase.");
                 resetButangAsal();
             } else if (committed) {
                 var nextNumber = snapshot.val();
                 
-                // Kunci memori peranti
                 localStorage.setItem('bp_ticket_no', nextNumber);
                 localStorage.setItem('bp_ticket_name', nama);
                 
@@ -104,7 +101,6 @@
         document.getElementById('namaTiket').innerText = nama;
     }
 
-    // Semak memori tiket lama sewaktu telefon dibuka
     window.addEventListener('load', function() {
         var savedTicket = localStorage.getItem('bp_ticket_no');
         var savedName = localStorage.getItem('bp_ticket_name');
@@ -113,8 +109,8 @@
         }
     });
 
-    // Ambil data siaran langsung dari Firebase secara automatik
-    database.ref('sistem_giliran').on('value', function(snapshot) {
+    // Menggunakan pembolehubah db.ref() untuk penstriman data secara langsung
+    db.ref('sistem_giliran').on('value', function(snapshot) {
         var data = snapshot.val();
         if (!data) return;
 
