@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Giliran BP Seri Iskandar - Kaunter 1</title>
+    <title>Sistem Giliran BP Seri Iskandar - Kaunter 2</title>
     <style>
         body { font-family: Arial, sans-serif; text-align: center; padding: 25px; background-color: #e2e8f0; color: #1a202c; }
         .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: inline-block; max-width: 320px; width: 100%; box-sizing: border-box; border-top: 6px solid #003366; }
         .logo-text { font-size: 11px; font-weight: bold; color: #003366; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
         .no-panggil { font-size: 56px; font-weight: bold; color: #003366; margin: 15px 0; }
-        button { background-color: #38a169; color: white; border: none; padding: 18px; font-size: 20px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; transition: 0.2s; }
-        button:hover { background-color: #2f855a; }
+        button { background-color: #38a169; color: white; border: none; padding: 18px; font-size: 20px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; }
         .badge { background: #003366; color: white; padding: 6px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; display: inline-block; }
         .status-tarikh { font-size: 11px; color: #4a5568; margin-top: 15px; background: #feebc8; padding: 5px; border-radius: 4px; border: 1px solid #fbd38d; }
         .reset-btn { background-color: #718096; font-size: 11px; padding: 6px 12px; width: auto; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 15px; }
@@ -20,95 +19,88 @@
 
 <div class="card">
     <div class="logo-text">PDRM Seri Iskandar</div>
-    <div class="badge" style="margin-top: 5px;">KAUNTER 2</div>
+    <div class="badge" style="margin-top: 5px;">KAUNTER 1</div>
     
     <div style="background: #f7fafc; padding: 20px; border-radius: 8px; margin: 15px 0; border: 1px solid #edf2f7;">
         <p style="margin:0; color:#4a5568; font-size: 14px;">Nombor Sedang Dilayani:</p>
-        <div class="no-panggil" id="noSemasaKaunter">---</div>
+        <div class="no-panggil" id="noSemasaKaunter">0000</div>
     </div>
 
-    <!-- Butang Utama Kawalan Staf -->
     <button onclick="panggilSeterusnya()">Seterusnya ➡️</button>
-    
-    <div class="status-tarikh" id="infoTarikh">Menyemak tarikh sistem...</div>
+    <div class="status-tarikh" id="infoTarikh">Menyemak tarikh...</div>
     <button class="reset-btn" onclick="manualResetSistem()">Reset Manual</button>
 </div>
 
-<script>
-    // URL Pangkalan Data Rasmi Dari Gambar Sesi Anda
-    const BASE_DB_URL = "https://firebasedatabase.app";
-    const KAUNTER_ID = "2"; 
+<script type="module">
+    import { initializeApp } from "https://gstatic.com";
+    import { getDatabase, ref, set, get, onValue, runTransaction, remove } from "https://gstatic.com";
 
-    window.onload = function() {
-        semakDanResetHariBaharu(); 
-        kemaskiniPaparanStaf(); 
-        setInterval(kemaskiniPaparanStaf, 2000); // Kemaskini paparan setiap 2 saat
-    }
+    const firebaseConfig = {
+        apiKey: "PASTE_YOUR_NEW_API_KEY_HERE",
+        authDomain: "giliran-balai-seri-iskandar.firebaseapp.com",
+        databaseURL: "https://firebasedatabase.app",
+        projectId: "giliran-balai-seri-iskandar",
+        storageBucket: "giliran-balai-seri-iskandar.appspot.com",
+        messagingSenderId: "894844997172",
+        appId: "PASTE_YOUR_NEW_APP_ID_HERE"
+    };
 
-    // SISTEM AUTO-RESET: Mengesan pertukaran hari mengikut tarikh Malaysia
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const KAUNTER_ID = "2";
+
+    window.addEventListener('DOMContentLoaded', () => {
+        semakDanResetHariBaharu();
+        
+        onValue(ref(db, `sistem_giliran/kaunter${KAUNTER_ID}`), (snapshot) => {
+            let num = snapshot.val() || 0;
+            document.getElementById('noSemasaKaunter').innerText = String(num).padStart(4, '0');
+        });
+    });
+
     function semakDanResetHariBaharu() {
-        let hariIni = new Date().toLocaleDateString('sv-SE'); // Format standard: YYYY-MM-DD
+        let hariIni = new Date().toLocaleDateString('sv-SE');
         document.getElementById('infoTarikh').innerText = `Sesi Hari Ini: ${hariIni}`;
 
-        fetch(BASE_DB_URL + "tarikh_last_reset.json")
-            .then(res => res.json())
-            .then(tarikhSimpanan => {
-                if (!tarikhSimpanan || tarikhSimpanan !== hariIni) {
-                    fetch(BASE_DB_URL + ".json", { method: 'DELETE' })
-                    .then(() => {
-                        fetch(BASE_DB_URL + "tarikh_last_reset.json", { method: 'PUT', body: JSON.stringify(hariIni) })
-                        .then(() => { 
-                            alert("Sistem mengesan hari baharu! Data giliran balai telah dikosongkan ke siri 1001."); 
-                            location.reload(); 
-                        });
+        get(ref(db, 'sistem_giliran/tarikh_last_reset')).then((snapshot) => {
+            let tarikhSimpanan = snapshot.val();
+            if (!tarikhSimpanan || tarikhSimpanan !== hariIni) {
+                remove(ref(db, 'sistem_giliran')).then(() => {
+                    set(ref(db, 'sistem_giliran/tarikh_last_reset'), hariIni).then(() => {
+                        alert("Hari baru dikesan! Sistem dikosongkan ke siri 1001.");
+                        location.reload();
                     });
-                }
-            }).catch(err => console.log("Menunggu sambungan database aktif..."));
-    }
-
-    function kemaskiniPaparanStaf() {
-        fetch(BASE_DB_URL + "kaunter" + KAUNTER_ID + ".json")
-            .then(res => res.json())
-            .then(num => {
-                document.getElementById('noSemasaKaunter').innerText = num || "---";
-            }).catch(err => console.log("Ralat memaparkan nombor kaunter."));
-    }
-
-    function panggilSeterusnya() {
-        // Ambil data last_number dan current_called secara berasingan dengan URL Terus yang selamat
-        Promise.all([
-            fetch(BASE_DB_URL + "last_number.json").then(res => res.json()),
-            fetch(BASE_DB_URL + "current_called.json").then(res => res.json())
-        ]).then(([lastNumber, currentCalled]) => {
-            let last = lastNumber ? parseInt(lastNumber) : 1000;
-            let current = currentCalled ? parseInt(currentCalled) : 1000;
-
-            if (current >= last) { 
-                alert('Tiada pelawat atau aduan baharu dalam barisan menunggu.'); 
-                return; 
+                });
             }
-
-            let nextToCall = current + 1;
-
-            // Kemaskini data giliran global dan data khusus Kaunter 1 di Firebase
-            Promise.all([
-                fetch(BASE_DB_URL + "current_called.json", { method: 'PUT', body: JSON.stringify(nextToCall) }),
-                fetch(BASE_DB_URL + "kaunter" + KAUNTER_ID + ".json", { method: 'PUT', body: JSON.stringify(nextToCall) })
-            ]).then(() => kemaskiniPaparanStaf());
-        }).catch(err => {
-            alert("Ralat sambungan rangkaian. Sila semak pautan URL Firebase anda.");
         });
     }
 
-    function manualResetSistem() {
-        if(confirm("Adakah anda pasti mahu set semula semua data giliran secara manual untuk hari ini?")) {
+    window.panggilSeterusnya = function() {
+        const rootRef = ref(db, 'sistem_giliran');
+        get(rootRef).then((snapshot) => {
+            const data = snapshot.val() || {};
+            let last = data.last_number || 1000;
+            let current = data.current_called || 1000;
+
+            if (current >= last) {
+                alert('Tiada pelawat dalam barisan menunggu.');
+                return;
+            }
+
+            let nextToCall = current + 1;
+            set(ref(db, 'sistem_giliran/current_called'), nextToCall);
+            set(ref(db, `sistem_giliran/kaunter${KAUNTER_ID}`), nextToCall);
+        });
+    };
+
+    window.manualResetSistem = function() {
+        if(confirm("Reset semua data giliran balai?")) {
             let hariIni = new Date().toLocaleDateString('sv-SE');
-            fetch(BASE_DB_URL + ".json", { method: 'DELETE' }).then(() => {
-                fetch(BASE_DB_URL + "tarikh_last_reset.json", { method: 'PUT', body: JSON.stringify(hariIni) })
-                .then(() => location.reload());
+            remove(ref(db, 'sistem_giliran')).then(() => {
+                set(ref(db, 'sistem_giliran/tarikh_last_reset'), hariIni).then(() => location.reload());
             });
         }
-    }
+    };
 </script>
 </body>
 </html>
