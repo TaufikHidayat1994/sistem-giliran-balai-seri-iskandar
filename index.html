@@ -17,7 +17,7 @@
         .box-mesej { font-size: 16px; font-weight: bold; background: #feebc8; padding: 15px; border-radius: 8px; margin-top: 15px; line-height: 1.4; white-space: pre-line; border: 1px solid #fbd38d; }
     </style>
 
-    <!-- MEMUAT NAIK SKRIP FIREBASE KLASIK (TERBUKTI KALIS SEKATAN CORS BROWSER) -->
+    <!-- BLOK 1: MUAT TURUN PERPUSTAKAAN FIREBASE DARI SERVERN CDNJ GLOBAL -->
     <script src="https://cloudflare.com"></script>
     <script src="https://cloudflare.com"></script>
 </head>
@@ -51,38 +51,39 @@
     </div>
 </div>
 
+<!-- BLOK 2: MEMULAKAN SAMBUNGAN PANGKALAN DATA (INITIALIZATION) -->
 <script>
-    // Konfigurasi Asas Menggunakan Pautan Database Sah Anda
     const firebaseConfig = {
         databaseURL: "https://firebasedatabase.app"
     };
 
-    // Memulakan sambungan Firebase
+    // Daftarkan aplikasi ke server Google
     firebase.initializeApp(firebaseConfig);
-    const database = firebase.database();
+    var database = firebase.database();
+</script>
 
-    let currentCalledGlobal = 1000;
+<!-- BLOK 3: LOGIK OPERASI FUNGSI BUTANG DAN LIVE UPDATE -->
+<script>
+    var currentCalledGlobal = 1000;
 
-    // ISYTIHAR FUNGSI SECARA GLOBAL SECARA LANGSUNG (BEBAS type="module")
     function semakLokasiDanAmbil() {
-        let nama = document.getElementById('namaPelanggan').value.trim();
+        var nama = document.getElementById('namaPelanggan').value.trim();
         if (!nama) { alert('Sila masukkan nama anda!'); return; }
 
         document.getElementById('btnAmbil').disabled = true;
         document.getElementById('btnAmbil').innerText = "⏳ Memproses...";
 
-        // Guna kahedah transaksi dalaman Firebase Klasik (Kalis ralat)
+        // Guna transaksi Firebase Klasik
         database.ref('sistem_giliran/last_number').transaction(function(currentNumber) {
             return (currentNumber || 1000) + 1;
         }, function(error, committed, snapshot) {
             if (error) {
-                alert("Ralat sambungan database. Sila pastikan Rules Firebase adalah true.");
-                document.getElementById('btnAmbil').disabled = false;
-                document.getElementById('btnAmbil').innerText = "Ambil Tiket Giliran";
+                alert("Ralat pangkalan data. Sila semak semula rules Firebase.");
+                resetButangAsal();
             } else if (committed) {
-                let nextNumber = snapshot.val();
+                var nextNumber = snapshot.val();
                 
-                // Simpan rekod dalam memori telefon
+                // Kunci memori peranti
                 localStorage.setItem('bp_ticket_no', nextNumber);
                 localStorage.setItem('bp_ticket_name', nama);
                 
@@ -91,14 +92,10 @@
         });
     }
 
-    // Semak memori peranti sewaktu halaman dimuatkan
-    window.onload = function() {
-        let savedTicket = localStorage.getItem('bp_ticket_no');
-        let savedName = localStorage.getItem('bp_ticket_name');
-        if (savedTicket && savedName) {
-            bukaSkrinTiket(savedTicket, savedName);
-        }
-    };
+    function resetButangAsal() {
+        document.getElementById('btnAmbil').disabled = false;
+        document.getElementById('btnAmbil').innerText = "Ambil Tiket Giliran";
+    }
 
     function bukaSkrinTiket(noTiket, nama) {
         document.getElementById('borang-pendaftaran').style.display = 'none';
@@ -107,21 +104,30 @@
         document.getElementById('namaTiket').innerText = nama;
     }
 
-    // PEMANTAUAN MASA NYATA DATA REALTIME DATABASE
+    // Semak memori tiket lama sewaktu telefon dibuka
+    window.addEventListener('load', function() {
+        var savedTicket = localStorage.getItem('bp_ticket_no');
+        var savedName = localStorage.getItem('bp_ticket_name');
+        if (savedTicket && savedName) {
+            bukaSkrinTiket(savedTicket, savedName);
+        }
+    });
+
+    // Ambil data siaran langsung dari Firebase secara automatik
     database.ref('sistem_giliran').on('value', function(snapshot) {
-        const data = snapshot.val();
+        var data = snapshot.val();
         if (!data) return;
 
-        let k1 = data.kaunter1 || 0;
-        let k2 = data.kaunter2 || 0;
+        var k1 = data.kaunter1 || 0;
+        var k2 = data.kaunter2 || 0;
         currentCalledGlobal = data.current_called || 1000;
 
         document.getElementById('liveK1').innerText = String(k1).padStart(4, '0');
         document.getElementById('liveK2').innerText = String(k2).padStart(4, '0');
         
-        let savedTicket = localStorage.getItem('bp_ticket_no');
+        var savedTicket = localStorage.getItem('bp_ticket_no');
         if (savedTicket) {
-            let noSayaInt = parseInt(savedTicket);
+            var noSayaInt = parseInt(savedTicket);
             if (k1 === noSayaInt) {
                 document.getElementById('statusMesej').innerText = "🔔 SILA KE KAUNTER 1 SEKARANG!\nPegawai sedang menunggu anda.";
                 document.getElementById('statusMesej').style.backgroundColor = "#c6f6d5";
@@ -135,7 +141,7 @@
                 document.getElementById('statusMesej').style.backgroundColor = "#fed7d7";
                 document.getElementById('statusMesej').style.color = "#9b2c2c";
             } else {
-                let baki = noSayaInt - currentCalledGlobal;
+                var baki = noSayaInt - currentCalledGlobal;
                 document.getElementById('statusMesej').innerText = `⏳ Mohon bersiap sedia.\nAda ${baki} giliran sebelum nombor anda dipanggil.`;
                 document.getElementById('statusMesej').style.backgroundColor = "#feebc8";
                 document.getElementById('statusMesej').style.color = "#c05621";
