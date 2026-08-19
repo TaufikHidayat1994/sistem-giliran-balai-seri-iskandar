@@ -1,152 +1,154 @@
 <!DOCTYPE html>
+
 <html lang="ms">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Tiket Digital Balai Polis Seri Iskandar</title>
+
+    <title>Sistem Giliran Balai</title>
+
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; padding: 15px; background-color: #f0f4f8; color: #1a202c; }
-        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.15); display: inline-block; max-width: 360px; width: 100%; box-sizing: border-box; border-top: 6px solid #003366; }
-        .logo-placeholder { font-size: 14px; font-weight: bold; color: #003366; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
-        .status-kedai { background: #edf2f7; padding: 12px; border-radius: 10px; margin-bottom: 20px; font-size: 15px; border: 1px solid #cbd5e0; }
-        .live-no { font-size: 28px; font-weight: bold; color: #e53e3e; display: block; margin-top: 5px; }
-        button { background-color: #003366; color: white; border: none; padding: 14px; font-size: 16px; border-radius: 8px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: bold; }
-        button:disabled { background-color: #a0aec0; cursor: not-allowed; }
-        input { width: 100%; padding: 12px; margin-top: 10px; font-size: 16px; border-radius: 8px; border: 1px solid #cbd5e0; box-sizing: border-box; }
-        .nombor-anda { font-size: 56px; font-weight: bold; color: #2f855a; margin: 15px 0; letter-spacing: 2px; }
-        .box-mesej { font-size: 16px; font-weight: bold; background: #feebc8; padding: 15px; border-radius: 8px; margin-top: 15px; line-height: 1.4; white-space: pre-line; border: 1px solid #fbd38d; }
+
+        body { font-family: Arial, sans-serif; text-align: center; background: #f4f7f6; padding: 20px; }
+
+        .container { max-width: 500px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+
+        h1 { color: #1a365d; }
+
+        .number-display { font-size: 72px; font-weight: bold; color: #e53e3e; margin: 20px 0; background: #fff5f5; padding: 15px; border-radius: 8px; border: 2px dashed #feb2b2; }
+
+        button { background: #3182ce; color: white; border: none; padding: 12px 24px; font-size: 18px; border-radius: 6px; cursor: pointer; font-weight: bold; margin: 5px; }
+
+        button:hover { background: #2b6cb0; }
+
+        .reset-btn { background: #718096; }
+
+        .reset-btn:hover { background: #4a5568; }
+
     </style>
+
 </head>
+
 <body>
 
-<div class="card">
-    <div class="logo-placeholder">Polis Diraja Malaysia</div>
-    <h3 style="margin: 5px 0 15px 0; color: #003366;">Balai Polis Seri Iskandar</h3>
-    
-    <div class="status-kedai">
-        <strong>Nombor Giliran Aktif:</strong>
-        <div style="display: flex; justify-content: space-around; margin-top: 10px;">
-            <div>Kaunter 1<span id="liveK1" class="live-no">0000</span></div>
-            <div style="border-left: 1px solid #cbd5e0;"></div>
-            <div>Kaunter 2<span id="liveK2" class="live-no">0000</span></div>
-        </div>
-    </div>
-    
-    <div id="borang-pendaftaran">
-        <p style="font-size: 14px; color: #4a5568;">Sila masukkan nama untuk urusan rasmi balai.</p>
-        <input type="text" id="namaPelanggan" placeholder="Nama Penuh Anda" required>
-        <button id="btnAmbil" onclick="semakLokasiDanAmbil()">Ambil Tiket Giliran</button>
-    </div>
 
-    <div id="paparan-tiket" style="display:none;">
-        <p style="margin: 0; color: #4a5568;">Nombor Tiket Anda:</p>
-        <div class="nombor-anda" id="noTiket">0000</div>
-        <p style="margin: 0 0 10px 0;">Nama: <strong id="namaTiket">-</strong></p>
-        <div class="box-mesej" id="statusMesej">Memuatkan status barisan...</div>
-        <button onclick="localStorage.clear(); location.reload();" style="background-color: #718096; font-size: 12px; padding: 8px; width: auto; margin-top: 20px;">Urusan Selesai / Tiket Baru</button>
-    </div>
+
+<div class="container">
+
+    <h1>Sistem Giliran Balai</h1>
+
+    <p>Nombor Giliran Semasa:</p>
+
+    
+    <!-- Large Queue Number Display -->
+
+    <div class="number-display" id="queueNumber">0000</div>
+
+
+
+    <button onclick="nextNumber()">Panggil Nombor Seterusnya</button>
+
+    <br><br>
+    <button class="reset-btn" onclick="resetQueue()">Reset Kaunter</button>
 </div>
 
-<script>
-    // MENGGUNA JALAN PINTAS REST API TERUS TANPA PERLU MEMUAT TURUN FILE SDK GOOGLE/JSDELIVR
-    const URL_TARGET = "https://giliran-balai-seri-iskandar-default-rtdb.asia-southeast1.firebasedatabase.app";
-    const URL_LAST_NUMBER = "https://giliran-balai-seri-iskandar-default-rtdb.asia-southeast1.firebasedatabase.app";
 
-    var currentCalledGlobal = 1000;
 
-    function semakLokasiDanAmbil() {
-        var nama = document.getElementById('namaPelanggan').value.trim();
-        if (!nama) { alert('Sila masukkan nama anda!'); return; }
+<!-- Firebase Modular Script SDK -->
 
-        document.getElementById('btnAmbil').disabled = true;
-        document.getElementById('btnAmbil').innerText = "⏳ Memproses...";
+<script type="module">
 
-        // 1. Ambil nombor terakhir menggunakan FETCH asli browser (Kalis sebarang ralat is not defined)
-        fetch(URL_LAST_NUMBER)
-            .then(function(res) { return res.json(); })
-            .then(function(lastNumber) {
-                var nextNumber = lastNumber ? parseInt(lastNumber) + 1 : 1001;
+    import { initializeApp } from "https://gstatic.com";
 
-                // 2. Kemaskini nombor baru ke Firebase
-                fetch(URL_LAST_NUMBER, {
-                    method: 'PUT',
-                    body: JSON.stringify(nextNumber)
-                }).then(function() {
-                    // Simpan rekod memori
-                    localStorage.setItem('bp_ticket_no', nextNumber);
-                    localStorage.setItem('bp_ticket_name', nama);
-                    
-                    bukaSkrinTiket(nextNumber, nama);
-                }).catch(function() {
-                    alert("Ralat menghantar data.");
-                    resetButangAsal();
-                });
-            }).catch(function() {
-                alert("Gagal berhubung dengan pelayan Firebase. Sila pastikan laptop anda mempunyai akses internet.");
-                resetButangAsal();
-            });
-    }
+    import { getDatabase, ref, set, onValue } from "https://gstatic.com";
 
-    function resetButangAsal() {
-        document.getElementById('btnAmbil').disabled = false;
-        document.getElementById('btnAmbil').innerText = "Ambil Tiket Giliran";
-    }
 
-    function bukaSkrinTiket(noTiket, nama) {
-        document.getElementById('borang-pendaftaran').style.display = 'none';
-        document.getElementById('paparan-tiket').style.display = 'block';
-        document.getElementById('noTiket').innerText = String(noTiket).padStart(4, '0');
-        document.getElementById('namaTiket').innerText = nama;
-    }
 
-    // Semak memori tiket sewaktu halaman dimuatkan
-    window.addEventListener('load', function() {
-        var savedTicket = localStorage.getItem('bp_ticket_no');
-        var savedName = localStorage.getItem('bp_ticket_name');
-        if (savedTicket && savedName) {
-            bukaSkrinTiket(savedTicket, savedName);
-        }
+    // 1. PASTE YOUR CONFIG BLOCK HERE ONCE YOU CLICK 'REGISTER APP'
+    
+const firebaseConfig = {
+
+        apiKey: "AIzaSyDzR_aVqRuKQWTSeljaN-qHU2_lEeCgKr0",
+  	authDomain: "giliran-balai-seri-iskandar.firebaseapp.com",
+  	databaseURL: "https://giliran-balai-seri-iskandar-default-rtdb.asia-southeast1.firebasedatabase.app",
+  	projectId: "giliran-balai-seri-iskandar",
+  	storageBucket: "giliran-balai-seri-iskandar.firebasestorage.app",
+  	messagingSenderId: "894844997172",
+  	appId: "1:894844997172:web:5a7329add085d6d6e1c461",
+  	measurementId: "G-VE9QG28VWY"
+    };
+
+    
+
+// Initialize Firebase Realtime Database
+
+    const app = initializeApp(firebaseConfig);
+
+    const db = getDatabase(app);
+
+    const queueRef = ref(db, 'sistem_giliran/current');
+
+
+    let currentNumber = 0;
+
+    
+
+// 2. Listen to changes in real-time (Updates across all screens instantly!)
+
+    onValue(queueRef, (snapshot) => {
+
+        const data = snapshot.val();
+
+        currentNumber = data ? data.number : 0;
+        
+        
+
+// Formats number to 4 digits (e.g., 0005)
+
+        document.getElementById("queueNumber").innerText = String(currentNumber).padStart(4, '0');
     });
 
-    // Fungsi membaca status live secara berkala
-    function pantauSistem() {
-        fetch(URL_TARGET)
-            .then(function(res) { return res.json(); })
-            .then(function(data) {
-                if (!data) return;
+    
 
-                var k1 = data.kaunter1 || 0;
-                var k2 = data.kaunter2 || 0;
-                currentCalledGlobal = data.current_called || 1000;
+// 3. Action to push next token number
 
-                document.getElementById('liveK1').innerText = String(k1).padStart(4, '0');
-                document.getElementById('liveK2').innerText = String(k2).padStart(4, '0');
-                
-                var savedTicket = localStorage.getItem('bp_ticket_no');
-                if (savedTicket) {
-                    var noSayaInt = parseInt(savedTicket);
-                    if (k1 === noSayaInt) {
-                        document.getElementById('statusMesej').innerText = "🔔 SILA KE KAUNTER 1 SEKARANG!\nPegawai sedang menunggu anda.";
-                        document.getElementById('statusMesej').style.backgroundColor = "#c6f6d5";
-                        document.getElementById('statusMesej').style.color = "#22543d";
-                    } else if (k2 === noSayaInt) {
-                        document.getElementById('statusMesej').innerText = "🔔 SILA KE KAUNTER 2 SEKARANG!\nPegawai sedang menunggu anda.";
-                        document.getElementById('statusMesej').style.backgroundColor = "#c6f6d5";
-                        document.getElementById('statusMesej').style.color = "#22543d";
-                    } else if (currentCalledGlobal >= noSayaInt) {
-                        document.getElementById('statusMesej').innerText = "❌ NOMBOR ANDA TELAH TERLEPAS!\nSila maklumkan kepada petugas kaunter.";
-                        document.getElementById('statusMesej').style.backgroundColor = "#fed7d7";
-                        document.getElementById('statusMesej').style.color = "#9b2c2c";
-                    } else {
-                        var baki = noSayaInt - currentCalledGlobal;
-                        document.getElementById('statusMesej').innerText = `⏳ Mohon bersiap sedia.\nAda ${baki} giliran sebelum nombor anda dipanggil.`;
-                        document.getElementById('statusMesej').style.backgroundColor = "#feebc8";
-                        document.getElementById('statusMesej').style.color = "#c05621";
-                    }
-                }
+
+    window.nextNumber = function() {
+
+        set(queueRef, {
+
+            number: currentNumber + 1,
+
+            lastUpdated: Date.now()
+        });
+
+    };
+
+    
+
+// 4. Action to clear back to zero
+
+    window.resetQueue = function() {
+
+        if(confirm("Adakah anda pasti mahu set semula nombor giliran kepada 0000?")) {
+
+            set(queueRef, {
+
+                number: 0,
+
+                lastUpdated: Date.now()
+
             });
-    }
-    setInterval(pantauSistem, 2000); // Kemaskini status setiap 2 saat
+
+        }
+    };
+
 </script>
+
+
 </body>
+
 </html>
